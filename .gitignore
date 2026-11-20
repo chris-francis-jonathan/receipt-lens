@@ -3,3 +3,6 @@ __pycache__/
 .env
 *.db
 .pytest_cache/
+
+# Personal study & interview prep notes (local only)
+STUDY_NOTES.md
