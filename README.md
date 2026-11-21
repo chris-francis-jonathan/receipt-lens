@@ -1,62 +1,76 @@
-# ReceiptLens — Bilingual Japanese-English Document & Receipt Analyzer
+# ReceiptLens
 
-ReceiptLens is a full-stack financial and administrative document extraction pipeline built for international students and residents in Japan. It parses Japanese supermarket receipts, utility bills, and official PDF notices into structured bilingual (Japanese/English) JSON records, validates arithmetic consistency automatically, and stores categorized spending analytics in SQLite.
+Bilingual Japanese-to-English receipt and document analyzer built with **FastAPI**, **Google Gemini (`google-genai`)**, **Pydantic**, **SQLite**, and **Streamlit**.
 
-## Key Engineering Features
+ReceiptLens extracts structured line items, Japanese-to-English translations, tax amounts, categories, and action deadlines from Japanese receipts (`JPEG`, `PNG`, `WEBP`) and digital PDFs (e.g., municipal notices, utility bills), verifies extracted arithmetic deterministically, and tracks spending by category.
 
-* **Strict Schema Enforcement (Pydantic v2):** Enforces typed extraction (`DocumentExtraction` & `LineItem`) using Gemini structured outputs, eliminating brittle regex parsing.
-* **Deterministic Math Sanity Check:** Computes `calculated_total_jpy` from extracted line items plus consumption tax (`外税`) and flags discrepancies (`needs_review = True`) caused by store discounts, loyalty points, or OCR misreads for human verification.
-* **Resilient Model Fallback Chain:** Automatically fails over across free-tier Gemini models (`gemini-3.6-flash` → `gemini-3.5-flash-lite` → `gemini-3.8-flash`) with bounded HTTP timeouts to handle `503`/`504` traffic spikes gracefully.
-* **Hybrid PDF Processing:** Extracts embedded text locally via `PyMuPDF` for digital PDFs to minimize token usage and latency, falling back to multimodal vision parsing for scanned paper PDFs.
-* **Vendor-Agnostic Architecture:** Isolates all LLM API calls inside `app/extractor.py`, keeping validation, database persistence, API routing, and UI layers decoupled from the underlying AI provider.
+---
 
-## Tech Stack
-
-* **Language:** Python 3.13
-* **AI & Document Parsing:** Google GenAI SDK (`google-genai`), PyMuPDF (`pymupdf`)
-* **Validation & Backend:** Pydantic v2, FastAPI *(in progress)*
-* **Database:** SQLite (`sqlite3` with parameterized queries) *(in progress)*
-* **Frontend:** Streamlit *(planned)*
-
-## Project Structure
+## Architecture
 
 ```text
-receipt-lens/
-├── app/
-│   ├── schemas.py       # Pydantic v2 models & computed math sanity checks
-│   ├── extractor.py     # Multimodal image/PDF extraction & model fallback logic
-│   ├── database.py      # SQLite persistence & spending aggregations (Next)
-│   └── main.py          # FastAPI REST endpoints (Planned)
-├── frontend/
-│   └── dashboard.py     # Streamlit analytics & upload UI (Planned)
-├── tests/               # Pytest unit & API integration tests (Planned)
-├── BUILD_LOG.md         # Incremental development tracker
-└── requirements.txt
+Streamlit UI (frontend/dashboard.py)
+       │  HTTP (JSON / multipart upload)
+       ▼
+FastAPI REST API (app/main.py)
+       ├──► Gemini Extractor (app/extractor.py) ──► Pydantic Validation (app/schemas.py)
+       └──► SQLite Persistence (app/database.py) ──► receipt_lens.db
 ```
 
-## Local Setup
+### Key Engineering Decisions
+* **Deterministic Math Guardrail (`app/schemas.py`):** LLMs frequently miscalculate totals when store discounts or point deductions appear on receipts. Pydantic computes `calculated_total_jpy` (`sum(items) + tax_jpy`) in Python and automatically flags `needs_review = True` whenever line items are present and the sum differs from the printed receipt total.
+* **Resilient Model Fallback (`app/extractor.py`):** Configured with a 25-second timeout, `thinking_level="low"`, and an automatic fallback chain (`gemini-3.5-flash-lite` → `gemini-3.6-flash` → `gemini-3.8-flash`) to handle transient rate limits or server timeouts gracefully.
+* **Hybrid PDF Handling (`app/extractor.py`):** Uses PyMuPDF (`pymupdf`) to extract embedded text directly from digital PDFs before falling back to multimodal vision processing for scanned documents.
+* **Decoupled Backend & Frontend (`app/main.py` & `frontend/dashboard.py`):** Business logic and SQLite persistence live behind RESTful FastAPI endpoints, keeping the UI independent and allowing automated API testing.
 
-1. **Clone the repository and create a virtual environment:**
-   ```bash
-   git clone [https://github.com/](https://github.com/)chris-francis-jonathan/receipt-lens.git
-   cd receipt-lens
-   python -m venv .venv
-   # Windows PowerShell:
-   .venv\Scripts\activate
-   ```
+---
 
-2. **Install dependencies:**
-   ```bash
-   pip install pydantic google-genai pymupdf python-dotenv fastapi uvicorn streamlit
-   ```
+## Quickstart
 
-3. **Configure environment variables:**
-   Create a `.env` file in the project root and add your free Google AI Studio key:
-   ```env
-   GEMINI_API_KEY=your_api_key_here
-   ```
+### 1. Clone & Set Up Virtual Environment
+```bash
+git clone [https://github.com/chris-francis-jonathan/receipt-lens.git](https://github.com/chris-francis-jonathan/receipt-lens.git)
+cd receipt-lens
+python -m venv .venv
+```
 
-## Known Edge Cases & Roadmap
+Activate the virtual environment:
+* **Windows (PowerShell):** `.venv\Scripts\Activate.ps1`
+* **macOS / Linux:** `source .venv/bin/activate`
 
-* **Discounts & Point Redemptions (v1.1):** Japanese supermarket receipts frequently apply line-item discounts (`値引`) or loyalty point deductions after subtotaling. Currently, these trigger `needs_review: true` safely; v1.1 will add a dedicated `discount_jpy` field.
-* **FastAPI & Streamlit Integration:** Exposing REST endpoints and an interactive bilingual dashboard for receipt uploads and monthly category breakdowns.
+Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env` and add your Gemini API key:
+```bash
+cp .env.example .env
+```
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+### 3. Run the Application (Two Terminals)
+**Terminal 1 — Start the FastAPI backend:**
+```bash
+uvicorn app.main:app --reload
+```
+*(Interactive Swagger API docs are available at `http://127.0.0.1:8000/docs`.)*
+
+**Terminal 2 — Start the Streamlit dashboard:**
+```bash
+streamlit run frontend/dashboard.py
+```
+*(Open `http://localhost:8501` in your browser.)*
+
+---
+
+## Running Automated Tests
+
+The `pytest` suite isolates SQLite using temporary directories (`tmp_path`) and mocks Gemini API calls so tests run offline in under a second:
+
+```bash
+python -m pytest -v
+```
