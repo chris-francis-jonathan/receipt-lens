@@ -36,11 +36,12 @@ receipt-lens/
   * `date_iso: Optional[str] = None` (`YYYY-MM-DD`)
   * `items: list[LineItem] = []`
   * `tax_jpy: int = 0` (`ge=0`) — Separate consumption tax (外税)
+  * `discount_jpy: int = 0` (`ge=0`) — Store discounts, coupons, or point deductions (割引/値引)
   * `total_amount_jpy: int` (`ge=0`) — Printed grand total in JPY
   * `category: CategoryType`
   * `english_summary: str`
   * `action_deadline: Optional[str] = None`
-  * **`calculated_total_jpy` (`@computed_field`):** `sum(item.price_jpy for item in self.items) + self.tax_jpy`
+  * **`calculated_total_jpy` (`@computed_field`):** `sum(item.price_jpy for item in self.items) + self.tax_jpy - self.discount_jpy`
   * **`needs_review` (`@computed_field`):** `False` if `items` is empty; otherwise `calculated_total_jpy != total_amount_jpy`
 
 ---
@@ -59,7 +60,7 @@ receipt-lens/
 ## 4. SQLite Persistence (`app/database.py` → `receipt_lens.db`)
 
 Table `documents` columns:
-`id` (PK), `created_at` (UTC ISO), `document_type`, `vendor_or_issuer`, `date_iso`, `tax_jpy`, `total_amount_jpy`, `calculated_total_jpy`, `needs_review` (`0`/`1`), `category`, `english_summary`, `action_deadline`, `items_json` (JSON-serialized `list[LineItem]`).
+`id` (PK), `created_at` (UTC ISO), `document_type`, `vendor_or_issuer`, `date_iso`, `tax_jpy`, `discount_jpy`, `total_amount_jpy`, `calculated_total_jpy`, `needs_review` (`0`/`1`), `category`, `english_summary`, `action_deadline`, `items_json` (JSON-serialized `list[LineItem]`).
 
 ---
 

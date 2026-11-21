@@ -74,9 +74,9 @@ if "last_upload" in st.session_state:
 
     if latest["needs_review"]:
         st.warning(
-            f"⚠️ Math Mismatch Detected: Extracted items + tax equal "
+            f"⚠️ Math Mismatch Detected: Items + tax - discount equal "
             f"¥{latest['calculated_total_jpy']:,}, but receipt total is "
-            f"¥{latest['total_amount_jpy']:,} (likely a store discount or point deduction)."
+            f"¥{latest['total_amount_jpy']:,}."
         )
 
     st.info(f"**Summary:** {latest['english_summary']}")
@@ -140,6 +140,7 @@ else:
 
             st.write(
                 f"**Tax:** ¥{doc['tax_jpy']:,} | "
+                f"**Discount:** -¥{doc.get('discount_jpy', 0):,} | "
                 f"**Calculated Total:** ¥{doc['calculated_total_jpy']:,} | "
                 f"**Receipt Total:** ¥{doc['total_amount_jpy']:,}"
             )

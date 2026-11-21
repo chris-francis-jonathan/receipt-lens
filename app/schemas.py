@@ -35,6 +35,11 @@ class DocumentExtraction(BaseModel):
         ge=0,
         description="Separate consumption tax (外税) in JPY if not already inside item prices",
     )
+    discount_jpy: int = Field(
+        default=0,
+        ge=0,
+        description="Total store discounts, coupons, or point deductions (割引/値引) as a positive integer in JPY",
+    )
     total_amount_jpy: int = Field(
         ge=0, description="Printed grand total in JPY (0 if non-financial notice)"
     )
@@ -50,7 +55,11 @@ class DocumentExtraction(BaseModel):
     @computed_field
     @property
     def calculated_total_jpy(self) -> int:
-        return sum(item.price_jpy for item in self.items) + self.tax_jpy
+        return (
+            sum(item.price_jpy for item in self.items)
+            + self.tax_jpy
+            - self.discount_jpy
+        )
 
     @computed_field
     @property

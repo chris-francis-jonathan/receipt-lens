@@ -25,6 +25,7 @@ Extract all fields accurately from the provided Japanese receipt, bill, or offic
 - Keep original Japanese item names in `name_ja` and provide clear English translations in `name_en`.
 - Extract every individual item price in JPY.
 - If consumption tax (外税) is added separately at the bottom rather than included in item prices, put it in `tax_jpy`.
+- If store discounts, coupons, or point redemptions (割引, 値引, クーポン, ポイント利用) appear on the receipt, put the total discount amount as a positive integer in `discount_jpy` (0 if none).
 - Use YYYY-MM-DD format for `date_iso` if a date is visible.
 """
 

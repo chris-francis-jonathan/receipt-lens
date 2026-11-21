@@ -134,3 +134,18 @@ def test_missing_document_returns_404(isolated_db):
         delete_res = client.delete("/documents/999")
         assert patch_res.status_code == 404
         assert delete_res.status_code == 404
+
+def test_schema_extracted_discount_reconciles_total():
+    doc = DocumentExtraction(
+        document_type="receipt",
+        vendor_or_issuer="Sample Supermarket",
+        date_iso="2026-11-18",
+        items=[LineItem(name_ja="商品A", name_en="Item A", price_jpy=4194)],
+        tax_jpy=340,
+        discount_jpy=85,
+        total_amount_jpy=4449,
+        category="groceries",
+        english_summary="Grocery receipt with an 85 JPY store discount.",
+    )
+    assert doc.calculated_total_jpy == 4449
+    assert doc.needs_review is False

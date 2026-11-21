@@ -17,7 +17,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Creates the documents table if it does not already exist."""
+    """Creates the documents table and applies lightweight column migrations."""
     with get_connection() as conn:
         conn.execute(
             """
@@ -28,6 +28,7 @@ def init_db() -> None:
                 vendor_or_issuer TEXT NOT NULL,
                 date_iso TEXT,
                 tax_jpy INTEGER NOT NULL DEFAULT 0,
+                discount_jpy INTEGER NOT NULL DEFAULT 0,
                 total_amount_jpy INTEGER NOT NULL,
                 calculated_total_jpy INTEGER NOT NULL,
                 needs_review INTEGER NOT NULL DEFAULT 0,
@@ -38,6 +39,16 @@ def init_db() -> None:
             )
             """
         )
+
+        # Migrate existing local databases that predate the discount_jpy column
+        existing_cols = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(documents)").fetchall()
+        }
+        if "discount_jpy" not in existing_cols:
+            conn.execute(
+                "ALTER TABLE documents ADD COLUMN discount_jpy INTEGER NOT NULL DEFAULT 0"
+            )
 
 
 def insert_document(doc: DocumentExtraction) -> int:
@@ -54,10 +65,10 @@ def insert_document(doc: DocumentExtraction) -> int:
             """
             INSERT INTO documents (
                 created_at, document_type, vendor_or_issuer, date_iso,
-                tax_jpy, total_amount_jpy, calculated_total_jpy, needs_review,
-                category, english_summary, action_deadline, items_json
+                tax_jpy, discount_jpy, total_amount_jpy, calculated_total_jpy,
+                needs_review, category, english_summary, action_deadline, items_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 created_at,
@@ -65,6 +76,7 @@ def insert_document(doc: DocumentExtraction) -> int:
                 doc.vendor_or_issuer,
                 doc.date_iso,
                 doc.tax_jpy,
+                doc.discount_jpy,
                 doc.total_amount_jpy,
                 doc.calculated_total_jpy,
                 int(doc.needs_review),
